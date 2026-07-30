@@ -2,9 +2,23 @@
 
 ## Overview
 
-During the deployment process, several issues were encountered while setting up and running the NestJS application on an AWS Free Tier EC2 instance.
+This document summarizes the issues encountered while deploying a **NestJS backend application** on an **AWS Free Tier Ubuntu EC2** instance.
 
-This document summarizes the problems, their root causes, the troubleshooting steps performed, and the outcomes.
+The deployment involved configuring the server, installing dependencies, running Docker services, and starting the backend application. During this process, several infrastructure-related issues were identified and investigated.
+
+Each issue below includes the problem, root cause, troubleshooting steps, and outcome.
+
+---
+
+# Deployment Incident Summary
+
+| Issue | Status |
+|--------|--------|
+| Low Memory During Dependency Installation | ✅ Resolved |
+| Docker Compose Command Issue | ✅ Resolved |
+| Docker Image Pull Failure | ❌ Blocked by Storage |
+| No Space Left on Device | ⚠️ Partially Resolved |
+| Backend Startup Failure | ❌ Not Resolved |
 
 ---
 
@@ -12,39 +26,49 @@ This document summarizes the problems, their root causes, the troubleshooting st
 
 ## Problem
 
-While installing the project dependencies using `npm install`, the EC2 instance ran out of available memory.
+The `npm install` process failed because the EC2 instance ran out of available memory.
 
 ## Root Cause
 
-The AWS Free Tier instance had limited RAM, causing the installation process to fail.
+The AWS Free Tier instance has limited RAM, which was insufficient for installing all project dependencies.
 
 ## Troubleshooting
 
-A temporary swap file was created to provide additional virtual memory and allow the installation to complete.
+To provide additional virtual memory, a temporary swap file was created.
+
+This allowed the dependency installation to complete successfully.
 
 ## Outcome
 
-The dependencies were installed successfully.
+✅ Project dependencies were installed successfully.
 
 ---
 
-# Issue 2 – Docker Compose Command Not Found
+# Issue 2 – Docker Compose Command
 
 ## Problem
 
-The initial Docker Compose command failed because the expected command was not available.
+The Docker Compose command initially failed because the expected command was unavailable.
 
 ## Root Cause
 
-The Docker Compose installation differed from the command used by the project documentation.
+The installed Docker version used a different Docker Compose implementation than the one referenced in the project documentation.
 
 ## Troubleshooting
 
-Verified the installed Docker version and used the appropriate Docker Compose command supported by the environment.
+Verified the installed Docker version.
+
+```bash
+docker --version
+
+docker compose version
+```
+
+Used the Docker Compose command supported by the installed version.
 
 ## Outcome
 
-Docker Compose commands were executed successfully.
+✅ Docker Compose was working correctly after using the appropriate command.
 
 ---
 
@@ -52,25 +76,33 @@ Docker Compose commands were executed successfully.
 
 ## Problem
 
-Docker was unable to download the required PostgreSQL and Redis images.
+Docker failed to download the PostgreSQL and Redis images.
 
 ## Root Cause
 
-The root filesystem ran out of available storage during the image download process.
+The EC2 root filesystem ran out of available storage while downloading Docker images.
 
 ## Troubleshooting
 
-Disk usage was inspected using:
+Verified available disk space.
 
 ```bash
 df -h
 ```
 
-Docker storage usage and system resources were also reviewed to identify the storage bottleneck.
+Reviewed Docker storage usage.
+
+```bash
+docker images
+
+docker system df
+```
+
+Confirmed that the storage limitation was preventing the image download.
 
 ## Outcome
 
-The issue was confirmed to be insufficient disk space.
+❌ Docker images could not be downloaded because of insufficient disk space.
 
 ---
 
@@ -78,24 +110,44 @@ The issue was confirmed to be insufficient disk space.
 
 ## Problem
 
-Several commands failed with a **"No space left on device"** error.
+Several commands failed with the following error:
+
+```text
+No space left on device
+```
 
 ## Root Cause
 
-The default storage allocated to the EC2 Free Tier instance was insufficient for the application, dependencies, and Docker images.
+The default storage allocated to the AWS Free Tier EC2 instance was not sufficient for:
+
+- Project dependencies
+- Docker images
+- Temporary files
+- Swap file
 
 ## Troubleshooting
 
-The following actions were performed:
+Performed the following steps:
 
-- Checked disk usage
-- Identified large files
-- Removed the temporary swap file after it was no longer required
-- Verified available storage before retrying the deployment
+- Checked filesystem usage
+
+```bash
+df -h
+```
+
+- Checked memory usage
+
+```bash
+free -h
+```
+
+- Removed the temporary swap file after installation.
+
+- Rechecked available storage before retrying the deployment.
 
 ## Outcome
 
-Some storage was recovered, but not enough to complete the backend deployment.
+⚠️ Some storage was recovered, but not enough to complete the deployment.
 
 ---
 
@@ -103,35 +155,49 @@ Some storage was recovered, but not enough to complete the backend deployment.
 
 ## Problem
 
-The NestJS application could not connect to the required database services.
+The NestJS application failed to start because it could not connect to the required database services.
 
 ## Root Cause
 
-PostgreSQL and Redis containers could not start because Docker images could not be fully downloaded due to storage limitations.
+The PostgreSQL and Redis Docker containers were unavailable because their images could not be downloaded successfully.
+
+As a result:
+
+- PostgreSQL was unavailable
+- Redis was unavailable
+- Prisma could not establish a database connection
+- Backend startup failed
 
 ## Troubleshooting
 
-- Verified Docker installation
-- Checked running containers
-- Reviewed application logs
-- Confirmed environment variables
-- Verified available system resources
+Verified Docker installation.
+
+```bash
+docker ps -a
+
+docker images
+
+systemctl status docker
+```
+
+Verified application configuration and available system resources.
 
 ## Outcome
 
-The backend could not be started because the required services were unavailable.
+❌ The backend application could not be started.
 
 ---
 
-# Linux Commands Used
+# Useful Linux Commands
 
 | Purpose | Command |
 |----------|---------|
 | Check disk usage | `df -h` |
-| Check memory | `free -h` |
-| Monitor processes | `top` |
+| Check memory usage | `free -h` |
+| Monitor running processes | `top` |
 | View Docker containers | `docker ps -a` |
 | View Docker images | `docker images` |
+| View Docker storage usage | `docker system df` |
 | Check Docker service | `systemctl status docker` |
 | Check Nginx service | `systemctl status nginx` |
 
@@ -139,14 +205,24 @@ The backend could not be started because the required services were unavailable.
 
 # Lessons Learned
 
-- Always verify available disk space before deploying containerized applications.
-- Free Tier instances have limited memory and storage that can affect deployment.
-- Swap memory can help during dependency installation but is not a substitute for sufficient disk space.
-- Checking system resources early can help identify deployment bottlenecks.
-- A structured troubleshooting approach makes it easier to identify and resolve issues.
+- Always verify available storage before deploying containerized applications.
+- AWS Free Tier instances have limited compute and storage resources.
+- Temporary swap memory can help complete memory-intensive tasks such as dependency installation.
+- Docker images require sufficient free disk space before containers can be created.
+- Monitoring system resources early helps identify infrastructure bottlenecks faster.
+- A structured troubleshooting approach makes deployment issues easier to diagnose and document.
 
 ---
 
-# Summary
+# Conclusion
 
-Although the backend deployment could not be completed due to the storage limitations of the AWS Free Tier EC2 instance, the troubleshooting process provided valuable hands-on experience with Linux administration, Docker, resource monitoring, and deployment debugging.
+Although the backend deployment could not be completed because of the storage limitations of the AWS Free Tier EC2 instance, the troubleshooting process provided valuable hands-on experience with:
+
+- Linux system administration
+- Docker troubleshooting
+- Resource monitoring
+- Memory management
+- Storage analysis
+- Deployment debugging
+
+The experience reinforced the importance of systematically identifying root causes before attempting corrective actions.
