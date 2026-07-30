@@ -53,6 +53,86 @@ The project covers Linux server configuration, Docker installation, Node.js setu
 ```
 
 ---
+---
+
+# 🏗️ Deployment Architecture
+
+```text
+                    Internet
+                        │
+                        ▼
+                 AWS Security Group
+              (22, 80, 443 Allowed)
+                        │
+                        ▼
+                 AWS EC2 Instance
+                 Ubuntu 24.04 LTS
+                        │
+                        ▼
+                     Nginx
+               (Reverse Proxy)
+                        │
+                        ▼
+             NestJS Backend (9001)
+                  │            │
+                  ▼            ▼
+            PostgreSQL      Redis
+              (Docker)      (Docker)
+```
+
+> **Note:** Due to storage limitations on the AWS Free Tier EC2 instance, the PostgreSQL and Redis containers could not be started successfully, preventing the backend deployment from completing.
+
+---
+
+# 🔄 Deployment Workflow
+
+```text
+Start
+  │
+  ▼
+Launch EC2 Instance
+  │
+  ▼
+Configure Security Group
+  │
+  ▼
+Connect via SSH
+  │
+  ▼
+Update Ubuntu
+  │
+  ▼
+Install Nginx
+  │
+  ▼
+Install Node.js
+  │
+  ▼
+Install Docker
+  │
+  ▼
+Download Backend Project
+  │
+  ▼
+Configure Environment Variables
+  │
+  ▼
+Install Dependencies
+  │
+  ▼
+Start PostgreSQL & Redis
+  │
+  ▼
+Run NestJS Application
+  │
+  ▼
+Troubleshoot Deployment Issues
+  │
+  ▼
+Document Findings & Learnings
+```
+
+---
 
 # 📖 Documentation
 
